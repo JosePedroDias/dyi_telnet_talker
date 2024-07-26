@@ -9,24 +9,31 @@ use std::{
 brew install telnet
 cargo run &
 telnet 127.0.0.1 7878
+
+TODO:
+- notify stuff to everyone?
+- show topic and users at startup
 */
 
 fn main() {
+    // shared info
+    let names = Arc::new(RwLock::new(vec![]));
+    let topic = Arc::new(RwLock::new(String::from("unset")));
+
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
     for stream in listener.incoming() {
         println!("Connection established!");
 
-        // shared info
-        let names = Arc::new(RwLock::new(vec![]));
-        let topic = Arc::new(RwLock::new(String::from("unset")));
+        let names = Arc::clone(&names);
+        let topic = Arc::clone(&topic);
 
         thread::spawn(move || {
-            let names = Arc::new(names);
-
             let mut stream = stream.unwrap();
 
             stream.write(b"What is your name?\r\n").unwrap();
+
+            let mut my_name = String::new();
 
             let mut line_no = 0;
             let reader = BufReader::new(stream.try_clone().unwrap());
@@ -53,7 +60,7 @@ fn main() {
                                 reply = format!("Current topic: {}", topic);
                             }
                             _ if line_no == 1 => {
-                                let my_name = input.clone();
+                                my_name = input.clone();
                                 reply = format!("Hello, {}!", my_name);
                                 let mut names = names.write().unwrap();
                                 names.push(my_name.clone());
@@ -63,13 +70,13 @@ fn main() {
                                 let first = tokens.get(0);
                                 let second = tokens.get(1);
 
-                                println!("tokens: {:?} {:?}", first, second);
+                                //println!("tokens: {:?} {:?}", first, second);
 
                                 if first == Some(&"set") && second == Some(&"topic") {
-                                    let new_topic = tokens[2].to_string();
+                                    let new_topic = tokens.as_slice()[2..].join(" ");
                                     let mut topic = topic.write().unwrap();
                                     *topic = new_topic.clone();
-                                    reply = format!("Topic was set to to {}", new_topic);
+                                    reply = format!("Topic was set to '{}'", new_topic);
                                 } else {
                                     reply = input.to_ascii_uppercase();
                                 }
@@ -85,6 +92,10 @@ fn main() {
                     }
                 }
             }
+
+            let mut names = names.write().unwrap();
+            names.retain(|name| name != &my_name);
+
             println!("finishing a thread");
         });
     }
