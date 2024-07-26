@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, Write}, net::TcpListener, thread
+    io::{BufRead, BufReader, Write}, net::TcpListener, sync::{Arc, Mutex}, thread
 };
 
 /*
@@ -8,29 +8,49 @@ cargo run &
 telnet 127.0.0.1 7878
 */
 
-// multi user version
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
     for stream in listener.incoming() {
         println!("Connection established!");
 
-        /*let handle =*/ thread::spawn(move || {
+        let names = vec![];
+        let names = Mutex::new(names);
+        let names = Arc::new(names);
+
+        thread::spawn(move || {
+            let names = Arc::new(names);
+
             let mut stream = stream.unwrap();
 
-            stream.write(b"Hello World\r\n").unwrap();
+            stream.write(b"What is your name?\r\n").unwrap();
 
+            let mut line_no = 0;
             let reader = BufReader::new(stream.try_clone().unwrap());
             for line in reader.lines() {
                 match line {
                     Ok(line) => {
+                        line_no += 1;
+
                         println!("Received: {}", line);
 
                         if line == "exit" {
+                            stream.write(b"Bye!\r\n").unwrap();
                             break;
                         }
 
-                        let reply = line.to_ascii_uppercase() + "\r\n";
+                        let mut reply = line.to_ascii_uppercase() + "\r\n";
+                        if line_no == 1 {
+                            let my_name = line.clone();
+                            reply = format!("Hello, {}!\r\n", my_name);
+
+                            let mut names = names.lock().unwrap();
+                            names.push(my_name.clone());
+
+                            let joined_names = names.join(", ");
+                            reply = format!("{}Users here: {}\r\n", reply, joined_names);
+                        }
+
                         stream.write(reply.as_bytes()).unwrap();
                     }
                     Err(e) => {
@@ -39,51 +59,7 @@ fn main() {
                     }
                 }
             }
-            println!("finishing thread for this client");
+            println!("finishing a thread");
         });
-
-        //handle.join().unwrap(); // kills the outer thread as soon as the handled one ends
     }
-    println!("all done");
-}
-
-// single consumer version
-fn __main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-
-    // Accept only one connection.
-    if let Some(stream) = listener.incoming().next() {
-        println!("Connection established!");
-
-        let handle = thread::spawn(move || {
-            let mut stream = stream.unwrap();
-
-            stream.write(b"Hello World\r\n").unwrap();
-
-            let reader = BufReader::new(stream.try_clone().unwrap());
-            for line in reader.lines() {
-                match line {
-                    Ok(line) => {
-                        println!("Received: {}", line);
-
-                        if line == "exit" {
-                            break;
-                        }
-
-                        let reply = line.to_ascii_uppercase() + "\r\n";
-                        stream.write(reply.as_bytes()).unwrap();
-                    }
-                    Err(e) => {
-                        eprintln!("Error reading from stream: {}", e);
-                        break;
-                    }
-                }
-            }
-            println!("finishing");
-        });
-
-        // Wait for the spawned thread to finish.
-        handle.join().unwrap();
-    }
-    println!("Server is shutting down.");
 }
