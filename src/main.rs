@@ -3,18 +3,7 @@ use std::{
 };
 use std::net::TcpStream;
 
-use chrono;
 use chrono::Local;
-
-/*
-brew install telnet
-cargo run &
-telnet 127.0.0.1 7878
-
-TODO:
-- register/login user pass (these were to justify sqlite usage)
-- help command
-*/
 
 fn main() {
     // shared info

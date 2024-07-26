@@ -1,9 +1,13 @@
 [package]
-name = "asd"
+name = "dyi-telnet-talker"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/josépedrodias/dyi-telnet-talker"
+authors = ["José Pedro Dias <jose.pedro.dias@gmail.com>"]
 
 [dependencies]
 chrono = "0.4.24"
+
+[[bin]]
+name = "talker"
+path = "src/main.rs"
